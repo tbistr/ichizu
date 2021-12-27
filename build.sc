@@ -20,7 +20,7 @@ object ichizu extends SbtModule { m =>
     "-P:chiselplugin:useBundlePlugin"
   )
   override def ivyDeps = Agg(
-    ivy"edu.berkeley.cs::chisel3:3.4.3",
+    ivy"edu.berkeley.cs::chisel3:3.4.3"
   )
   override def scalacPluginIvyDeps = Agg(
     ivy"edu.berkeley.cs:::chisel3-plugin:3.4.3",

@@ -1,0 +1,9 @@
+{
+    "name": "riscv-chisel",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "extensions": [
+        "scalameta.metals"
+    ],
+}
