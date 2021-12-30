@@ -62,7 +62,8 @@ class Core extends Module {
     pc_plus4,
     Seq(
       br_flg -> br_target,
-      jmp_flg -> alu_out
+      jmp_flg -> alu_out,
+      (inst === ECALL) -> csr_regfile(0x305)
     )
   )
   pc_reg := pc_next
@@ -131,7 +132,8 @@ class Core extends Module {
       CSRRS -> List(ALU_COPY1, OP1_RS1, OP2_X, MEN_X, REN_S, WB_CSR, CSR_S),
       CSRRSI -> List(ALU_COPY1, OP1_IMZ, OP2_X, MEN_X, REN_S, WB_CSR, CSR_S),
       CSRRC -> List(ALU_COPY1, OP1_RS1, OP2_X, MEN_X, REN_S, WB_CSR, CSR_C),
-      CSRRCI -> List(ALU_COPY1, OP1_IMZ, OP2_X, MEN_X, REN_S, WB_CSR, CSR_C)
+      CSRRCI -> List(ALU_COPY1, OP1_IMZ, OP2_X, MEN_X, REN_S, WB_CSR, CSR_C),
+      ECALL -> List(ALU_X, OP1_X, OP2_X, MEN_X, REN_X, WB_X, CSR_E)
     )
   )
 
@@ -199,7 +201,7 @@ class Core extends Module {
   io.dmem.wdata := rs2_data
 
   val csr_regfile = Mem(4096, UInt(WORD_LEN.W)) // 12bitアドレスで指定できるのがmax4096bit
-  val csr_addr = inst(31, 20)
+  val csr_addr = Mux(csr_cmd === CSR_E, 0x342.U(CSR_ADDR_LEN.W), inst(31, 20))
   val csr_rdata = csr_regfile(csr_addr)
 
   val csr_wdata = MuxCase(
@@ -207,7 +209,10 @@ class Core extends Module {
     Seq(
       (csr_cmd === CSR_W) -> op1_data,
       (csr_cmd === CSR_S) -> (csr_rdata | op1_data),
-      (csr_cmd === CSR_C) -> (csr_rdata & ~op1_data)
+      (csr_cmd === CSR_C) -> (csr_rdata & ~op1_data),
+      (csr_cmd === CSR_E) -> 11.U(
+        WORD_LEN.W
+      )
     )
   )
 
