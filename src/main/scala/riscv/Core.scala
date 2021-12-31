@@ -42,9 +42,11 @@ class Core extends Module {
     val imem = Flipped(new ImemPortIo())
     val dmem = Flipped(new DmemPortIo())
     val exit = Output(Bool())
+    val gp = Output(UInt(WORD_LEN.W))
   })
 
   val regfile = Mem(32, UInt(WORD_LEN.W))
+  val csr_regfile = Mem(4096, UInt(WORD_LEN.W))
 
   //**********************************
   // Instruction Fetch (IF) Stage
@@ -176,7 +178,8 @@ class Core extends Module {
       (exe_fun === ALU_SRA) -> (op1_data.asSInt() >> op2_data(4, 0)).asUInt(),
       (exe_fun === ALU_SLT) -> (op1_data.asSInt() < op2_data.asSInt()).asUInt(),
       (exe_fun === ALU_SLTU) -> (op1_data < op2_data).asUInt(),
-      (exe_fun === ALU_JALR) -> (op1_data + op2_data) & ~1.U(WORD_LEN.W)
+      (exe_fun === ALU_JALR) -> ((op1_data + op2_data) & ~1.U(WORD_LEN.W)),
+      (exe_fun === ALU_COPY1) -> op1_data
     )
   )
 
@@ -197,10 +200,9 @@ class Core extends Module {
   // Memory Access Stage
 
   io.dmem.addr := alu_out
-  io.dmem.wen := Mux(mem_wen === MEN_S, 1.U(MEN_LEN.W), 0.U(MEN_LEN.W))
+  io.dmem.wen := mem_wen
   io.dmem.wdata := rs2_data
 
-  val csr_regfile = Mem(4096, UInt(WORD_LEN.W)) // 12bitアドレスで指定できるのがmax4096bit
   val csr_addr = Mux(csr_cmd === CSR_E, 0x342.U(CSR_ADDR_LEN.W), inst(31, 20))
   val csr_rdata = csr_regfile(csr_addr)
 
@@ -210,13 +212,11 @@ class Core extends Module {
       (csr_cmd === CSR_W) -> op1_data,
       (csr_cmd === CSR_S) -> (csr_rdata | op1_data),
       (csr_cmd === CSR_C) -> (csr_rdata & ~op1_data),
-      (csr_cmd === CSR_E) -> 11.U(
-        WORD_LEN.W
-      )
+      (csr_cmd === CSR_E) -> 11.U(WORD_LEN.W)
     )
   )
 
-  when(csr_cmd =/= CSR_X) {
+  when(csr_cmd > 0.U) {
     csr_regfile(csr_addr) := csr_wdata
   }
 
@@ -227,7 +227,8 @@ class Core extends Module {
     alu_out,
     Seq(
       (wb_sel === WB_MEM) -> io.dmem.rdata,
-      (wb_sel === WB_PC) -> pc_plus4
+      (wb_sel === WB_PC) -> pc_plus4,
+      (wb_sel === WB_CSR) -> csr_rdata
     )
   )
   when(rf_wen === REN_S) {
@@ -236,17 +237,18 @@ class Core extends Module {
 
   //**********************************
   // Debug
-  io.exit := (inst === 0x00602823.U(WORD_LEN.W))
-  printf(p"pc_reg   : 0x${Hexadecimal(pc_reg)}\n")
-  printf(p"inst     : 0x${Hexadecimal(inst)}\n")
-  printf(p"rs1_addr : $rs1_addr\n")
-  printf(p"rs2_addr : $rs2_addr\n")
-  printf(p"wb_addr  : $wb_addr\n")
-  printf(p"rs1_data : 0x${Hexadecimal(rs1_data)}\n")
-  printf(p"rs2_data : 0x${Hexadecimal(rs2_data)}\n")
-  printf(p"wb_data   : 0x${Hexadecimal(wb_data)}\n")
-  printf(p"dmem.addr : ${io.dmem.addr}\n")
-  printf(p"dmem.wen   : ${io.dmem.wen}\n")
-  printf(p"dmem.wdata : 0x${Hexadecimal(io.dmem.wdata)}\n")
-  printf("---------\n")
+  io.gp := regfile(3)
+  io.exit := (pc_reg === 0x44.U(WORD_LEN.W))
+  // printf(p"io.pc      : 0x${Hexadecimal(pc_reg)}\n")
+  // printf(p"inst       : 0x${Hexadecimal(inst)}\n")
+  // printf(p"gp         : ${regfile(3)}\n")
+  // printf(p"rs1_addr   : $rs1_addr\n")
+  // printf(p"rs2_addr   : $rs2_addr\n")
+  // printf(p"wb_addr    : $wb_addr\n")
+  // printf(p"rs1_data   : 0x${Hexadecimal(rs1_data)}\n")
+  // printf(p"rs2_data   : 0x${Hexadecimal(rs2_data)}\n")
+  // printf(p"wb_data    : 0x${Hexadecimal(wb_data)}\n")
+  // printf(p"dmem.addr  : ${io.dmem.addr}\n")
+  // printf(p"dmem.rdata : ${io.dmem.rdata}\n")
+  // printf("---------\n")
 }

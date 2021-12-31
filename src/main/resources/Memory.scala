@@ -56,7 +56,7 @@ class Memory extends Module {
   })
 
   val mem = Mem(16384, UInt(8.W))
-  loadMemoryFromFile(mem, "")
+  loadMemoryFromFile(mem, "src/riscv_test/rv32{isa}-p-{inst}.hex")
   io.imem.inst := Cat(
     mem(io.imem.addr + 3.U(WORD_LEN.W)),
     mem(io.imem.addr + 2.U(WORD_LEN.W)),
